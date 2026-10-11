@@ -4,6 +4,8 @@
 > *Policy-governed AI payments before they happen. Dispute-ready evidence graphs after they happen.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Live Demo: Render](https://img.shields.io/badge/Live%20Command%20Center-sentinel--prooflayer--web.onrender.com-00E599?logo=render&logoColor=white)](https://sentinel-prooflayer-web.onrender.com)
+[![Live API: Swagger Docs](https://img.shields.io/badge/Live%20API%20Docs-sentinel--prooflayer--api.onrender.com-009688?logo=fastapi&logoColor=white)](https://sentinel-prooflayer-api.onrender.com/docs)
 [![Tests: 48/48 Passing](https://img.shields.io/badge/Pytest-48%2F48%20Passing%20(0.68s)-brightgreen.svg)](backend/tests)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://python.org)
 [![FastAPI: 0.115+](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -11,6 +13,11 @@
 [![AG Grid: v32+](https://img.shields.io/badge/AG%20Grid-Enterprise%20Telemetry-FF6C37.svg)](https://www.ag-grid.com)
 [![PayPal: Sandbox APIs](https://img.shields.io/badge/PayPal-Orders%20v2%20%7C%20Invoicing%20v2%20%7C%20Disputes%20v1-003087.svg?logo=paypal&logoColor=white)](https://developer.paypal.com)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Speedyzyzz/sentinel-prooflayer)
+
+> **🌐 Live Deployed URLs (Render Cloud Blueprint):**
+> - **Institutional Frontend Command Center:** [https://sentinel-prooflayer-web.onrender.com](https://sentinel-prooflayer-web.onrender.com)
+> - **FastAPI Interactive Swagger Docs:** [https://sentinel-prooflayer-api.onrender.com/docs](https://sentinel-prooflayer-api.onrender.com/docs)
+> - **Backend Health Check:** [https://sentinel-prooflayer-api.onrender.com/health](https://sentinel-prooflayer-api.onrender.com/health)
 
 ---
 
