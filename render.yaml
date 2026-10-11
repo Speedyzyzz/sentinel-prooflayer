@@ -20,9 +20,9 @@ services:
       - key: CORS_ORIGINS
         value: "*"
       - key: PAYPAL_CLIENT_ID
-        sync: false
+        value: "sandbox_demo_client_id"
       - key: PAYPAL_CLIENT_SECRET
-        sync: false
+        value: "sandbox_demo_secret"
 
   # ----------------------------------------------------------------------------
   # Sentinel & ProofLayer Institutional Command Center (Next.js 15 + AG Grid)
