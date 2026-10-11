@@ -32,13 +32,11 @@ services:
     runtime: node
     plan: free
     rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npx next start -H 0.0.0.0 -p $PORT
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_VERSION
         value: "20.18.0"
-      - key: NODE_ENV
-        value: "production"
       - key: NEXT_PUBLIC_API_URL
         value: "https://sentinel-prooflayer-api.onrender.com/api"
       - key: NEXT_PUBLIC_PAYPAL_ENV
