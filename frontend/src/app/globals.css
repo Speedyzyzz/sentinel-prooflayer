@@ -1,0 +1,55 @@
+@import 'ag-grid-community/styles/ag-grid.css';
+@import 'ag-grid-community/styles/ag-theme-quartz.css';
+@import '@xyflow/react/dist/style.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #080C15;
+  color: #F8FAFC;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  overflow-x: hidden;
+}
+
+/* Custom Institutional AG Grid Theme Overrides */
+.ag-theme-quartz-dark {
+  --ag-background-color: #0E1526;
+  --ag-header-background-color: #0B1120;
+  --ag-header-foreground-color: #94A3B8;
+  --ag-border-color: #1E2C48;
+  --ag-row-border-color: #16223B;
+  --ag-foreground-color: #E2E8F0;
+  --ag-row-hover-color: #1A2744;
+  --ag-selected-row-background-color: #1E3A8A33;
+  --ag-font-family: inherit;
+  --ag-font-size: 13px;
+}
+
+.ag-theme-quartz-dark .ag-header-cell {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080C15;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E2C48;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2E4166;
+}

@@ -1,0 +1,45 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Sentinel & ProofLayer Backend API Service (FastAPI + SQLite WAL + MCP)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: sentinel-prooflayer-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: PAYPAL_ENV
+        value: "sandbox"
+      - key: DATABASE_URL
+        value: "sqlite:///./sentinel.db"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+
+  # ----------------------------------------------------------------------------
+  # Sentinel & ProofLayer Institutional Command Center (Next.js 15 + AG Grid)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: sentinel-prooflayer-web
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx next start -H 0.0.0.0 -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
+      - key: NODE_ENV
+        value: "production"
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://sentinel-prooflayer-api.onrender.com/api"
+      - key: NEXT_PUBLIC_PAYPAL_ENV
+        value: "sandbox"
