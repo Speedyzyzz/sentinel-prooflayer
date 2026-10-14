@@ -1,14 +1,17 @@
-"""Multi-Factor Invoice-to-PO Matching & Transparent Weighted Risk Engine.
+"""Multi-Factor Invoice-to-PO Matching & Explainable AI Weighted Risk Attribution Engine.
 
 Implements exact mathematical formulas:
 1. Invoice-to-PO Matching Score:
    M = 0.35 * S_vendor + 0.25 * S_total + 0.25 * S_line_items + 0.15 * S_terms
 
-2. Transparent Weighted Risk Score:
+2. Transparent Weighted Risk Score & Explainable AI Attribution:
    R = 0.30 * V + 0.25 * D + 0.20 * A + 0.15 * C + 0.10 * H
+   Plus Explainable AI Risk Attribution weights (prompt_injection_weight, velocity_weight,
+   credential_age_weight, vendor_allowlist_weight, amount_cap_weight, category_policy_weight,
+   historical_dispute_weight) and a human-readable governance_rationale.
 
-Zero opaque floats: every evaluation returns complete per-dimension breakdowns
-and human-readable diagnostic reasons.
+Zero opaque floats: every evaluation returns complete per-dimension breakdowns,
+component attribution weights, and human-readable diagnostic rationales.
 """
 
 from __future__ import annotations
@@ -39,6 +42,17 @@ class RiskEngine:
         "office_supplies",
         "consulting",
     }
+
+    PROMPT_INJECTION_PATTERNS: Tuple[str, ...] = (
+        r"ignore\s+(all\s+)?previous",
+        r"override\s+mandate",
+        r"bypass\s+(policy|approval|cfo|check)",
+        r"system\s*prompt",
+        r"auto_approve\s*=\s*true",
+        r"sudo\s+",
+        r"disregard\s+instructions",
+        r"force\s+capture",
+    )
 
     # -----------------------------------------------------------------------
     # Formula 1: Invoice-to-PO Matching Score (M in [0, 1])
@@ -185,7 +199,7 @@ class RiskEngine:
         return m_rounded, breakdown, reasons
 
     # -----------------------------------------------------------------------
-    # Formula 2: Transparent Weighted Risk Score (R in [0, 1])
+    # Formula 2: Transparent Weighted Risk Score (R in [0, 1]) & XAI Attribution
     # -----------------------------------------------------------------------
 
     @classmethod
@@ -196,8 +210,8 @@ class RiskEngine:
         mandate: Optional[Dict[str, Any]] = None,
         historical_fingerprints: Optional[Set[str]] = None,
         recent_vendor_transactions: Optional[List[Dict[str, Any]]] = None,
-    ) -> Tuple[float, Dict[str, float], List[str]]:
-        """Compute transparent 5-factor weighted risk score R in [0, 1].
+    ) -> Tuple[float, Dict[str, Any], List[str]]:
+        """Compute transparent 5-factor weighted risk score R in [0, 1] with Explainable AI attribution.
 
         Returns:
             Tuple of (R, breakdown_dict, reasons_list)
@@ -247,7 +261,7 @@ class RiskEngine:
             ]
             if recent_same_amt:
                 d_score = 0.70
-                reasons.append(f"Velocity anomaly: same vendor and amount detected within 24 hours.")
+                reasons.append("Velocity anomaly: same vendor and amount detected within 24 hours.")
             else:
                 d_score = 0.0
                 reasons.append(f"Invoice fingerprint {fp[:12]}... is unique.")
@@ -294,15 +308,129 @@ class RiskEngine:
         r = 0.30 * v_score + 0.25 * d_score + 0.20 * a_score + 0.15 * c_score + 0.10 * h_score
         r_rounded = round(max(0.0, min(1.0, r)), 4)
 
-        breakdown = {
+        # Explainable AI (XAI) Component Attribution Weights & Signals
+        prompt_injection_signal = cls._compute_prompt_injection_signal(intent, v_score, c_score)
+        prompt_injection_weight = round(0.35 * prompt_injection_signal, 4)
+        velocity_weight = round(0.25 * d_score, 4)
+        credential_age_signal = 0.02 if is_allowlisted else (0.50 if vendor_status in ("NEW", "UNVERIFIED") else 0.90)
+        credential_age_weight = round(0.20 * credential_age_signal + 0.10 * h_score, 4)
+
+        vendor_allowlist_weight = round(0.30 * v_score, 4)
+        amount_cap_weight = round(0.20 * a_score, 4)
+        category_policy_weight = round(0.15 * c_score, 4)
+        historical_dispute_weight = round(0.10 * h_score, 4)
+
+        governance_rationale = cls._build_governance_rationale(
+            amount=amount,
+            l_auto=l_auto,
+            l_max=l_max,
+            category=category,
+            vendor_id=vendor_id,
+            is_allowlisted=is_allowlisted,
+            r_score=r_rounded,
+            prompt_injection_weight=prompt_injection_weight,
+            velocity_weight=velocity_weight,
+            credential_age_weight=credential_age_weight,
+            amount_cap_weight=amount_cap_weight,
+            category_policy_weight=category_policy_weight,
+        )
+
+        breakdown: Dict[str, Any] = {
             "V": round(v_score, 4),
             "D": round(d_score, 4),
             "A": round(a_score, 4),
             "C": round(c_score, 4),
             "H": round(h_score, 4),
+            "prompt_injection_weight": prompt_injection_weight,
+            "velocity_weight": velocity_weight,
+            "credential_age_weight": credential_age_weight,
+            "vendor_allowlist_weight": vendor_allowlist_weight,
+            "amount_cap_weight": amount_cap_weight,
+            "category_policy_weight": category_policy_weight,
+            "historical_dispute_weight": historical_dispute_weight,
+            "component_weights": {
+                "prompt_injection_weight": prompt_injection_weight,
+                "velocity_weight": velocity_weight,
+                "credential_age_weight": credential_age_weight,
+                "vendor_allowlist_weight": vendor_allowlist_weight,
+                "amount_cap_weight": amount_cap_weight,
+                "category_policy_weight": category_policy_weight,
+                "historical_dispute_weight": historical_dispute_weight,
+            },
+            "governance_rationale": governance_rationale,
         }
 
         return r_rounded, breakdown, reasons
+
+    # -----------------------------------------------------------------------
+    # Explainable AI Attribution Helpers
+    # -----------------------------------------------------------------------
+
+    @classmethod
+    def _compute_prompt_injection_signal(
+        cls,
+        intent: Dict[str, Any],
+        v_score: float,
+        c_score: float,
+    ) -> float:
+        """Scan invoice references, line items, and notes for adversarial prompt injection or policy spoofing."""
+        text_blobs: List[str] = [
+            str(intent.get("invoice_ref", "")),
+            str(intent.get("notes", "")),
+            str(intent.get("description", "")),
+        ]
+        for item in intent.get("line_items") or intent.get("items") or []:
+            if isinstance(item, dict):
+                text_blobs.append(str(item.get("description", "")))
+        combined_text = " ".join(text_blobs).lower()
+
+        for pattern in cls.PROMPT_INJECTION_PATTERNS:
+            if re.search(pattern, combined_text):
+                return 1.0
+
+        # Elevated adversarial signal when an unverified vendor submits a blocked-category transfer
+        if v_score >= 1.0 and c_score >= 1.0:
+            return 0.80
+        if v_score >= 1.0 or c_score >= 1.0:
+            return 0.45
+        return 0.0
+
+    @classmethod
+    def _build_governance_rationale(
+        cls,
+        amount: float,
+        l_auto: float,
+        l_max: float,
+        category: str,
+        vendor_id: str,
+        is_allowlisted: bool,
+        r_score: float,
+        prompt_injection_weight: float,
+        velocity_weight: float,
+        credential_age_weight: float,
+        amount_cap_weight: float,
+        category_policy_weight: float,
+    ) -> str:
+        """Synthesize a deterministic, human-readable Explainable AI governance rationale."""
+        if category in cls.BLOCKED_CATEGORIES or not is_allowlisted or amount > l_max or prompt_injection_weight >= 0.25:
+            return (
+                f"HARD BLOCK (R={r_score:.3f}): Counterparty '{vendor_id}' or category '{category}' violates mandate guardrails "
+                f"[prompt_injection_weight={prompt_injection_weight:.3f}, velocity_weight={velocity_weight:.3f}, "
+                f"credential_age_weight={credential_age_weight:.3f}, category_policy_weight={category_policy_weight:.3f}]. "
+                "Zero PayPal API calls executed."
+            )
+        if amount > l_auto or r_score >= 0.15:
+            return (
+                f"CFO ESCALATION (R={r_score:.3f}): Verified vendor '{vendor_id}' passed injection & velocity screens "
+                f"[prompt_injection_weight={prompt_injection_weight:.3f}, velocity_weight={velocity_weight:.3f}, "
+                f"credential_age_weight={credential_age_weight:.3f}], but amount ${amount:,.2f} exceeds ${l_auto:,.2f} "
+                f"auto-limit (amount_cap_weight={amount_cap_weight:.3f}). Parked in HUMAN_REVIEW for CFO sign-off."
+            )
+        return (
+            f"FAST-PATH AUTO-APPROVAL (R={r_score:.3f}): Allowlisted vendor '{vendor_id}' within ${l_auto:,.2f} auto-ceiling "
+            f"with clean telemetry [prompt_injection_weight={prompt_injection_weight:.3f}, velocity_weight={velocity_weight:.3f}, "
+            f"credential_age_weight={credential_age_weight:.3f}]. Authorized for autonomous PayPal settlement."
+        )
 
     # -----------------------------------------------------------------------
     # Helper Utilities

@@ -28,6 +28,17 @@ export interface POInvoiceMatch {
   passed: boolean;
 }
 
+export interface RiskAttributionWeights {
+  prompt_injection_weight: number;
+  velocity_weight: number;
+  credential_age_weight: number;
+  vendor_allowlist_weight?: number;
+  amount_cap_weight?: number;
+  category_policy_weight?: number;
+  historical_dispute_weight?: number;
+  governance_rationale?: string;
+}
+
 export interface RiskBreakdown {
   score: number; // R in [0, 1]
   v_entity: number;
@@ -35,6 +46,14 @@ export interface RiskBreakdown {
   a_amount: number;
   c_category: number;
   h_history: number;
+  prompt_injection_weight?: number;
+  velocity_weight?: number;
+  credential_age_weight?: number;
+  vendor_allowlist_weight?: number;
+  amount_cap_weight?: number;
+  category_policy_weight?: number;
+  historical_dispute_weight?: number;
+  governance_rationale?: string;
   reasons: string[];
 }
 
@@ -197,6 +216,9 @@ export interface ScenarioRunResult {
   title: string;
   success: boolean;
   final_state: IntentStatus;
+  risk_score?: number;
+  risk_breakdown?: RiskAttributionWeights;
+  governance_rationale?: string;
   execution_steps: Array<{
     step: string;
     state: string;
@@ -260,12 +282,21 @@ export const SEEDED_INTENTS: PaymentIntent[] = [
       passed: true,
     },
     risk: {
-      score: 0.08,
-      v_entity: 0.05,
+      score: 0.0213,
+      v_entity: 0.0,
       d_duplicate: 0.0,
-      a_amount: 0.08,
+      a_amount: 0.084,
       c_category: 0.0,
-      h_history: 0.02,
+      h_history: 0.045,
+      prompt_injection_weight: 0.0,
+      velocity_weight: 0.0,
+      credential_age_weight: 0.0085,
+      vendor_allowlist_weight: 0.0,
+      amount_cap_weight: 0.0168,
+      category_policy_weight: 0.0,
+      historical_dispute_weight: 0.0045,
+      governance_rationale:
+        "FAST-PATH AUTO-APPROVAL (R=0.021): Allowlisted vendor 'vendor_data_labeling_co' within $1,000.00 auto-ceiling with clean telemetry [prompt_injection_weight=0.000, velocity_weight=0.000, credential_age_weight=0.009]. Authorized for autonomous PayPal settlement.",
       reasons: ["Allowlisted vendor", "Exact PO amount match", "Under $1,000 auto-approval threshold"],
     },
     idempotency_key: "idem_840_9941a_01",
@@ -296,12 +327,21 @@ export const SEEDED_INTENTS: PaymentIntent[] = [
       passed: true,
     },
     risk: {
-      score: 0.22,
-      v_entity: 0.05,
+      score: 0.1824,
+      v_entity: 0.0,
       d_duplicate: 0.0,
-      a_amount: 0.84,
+      a_amount: 0.8771,
       c_category: 0.0,
-      h_history: 0.05,
+      h_history: 0.07,
+      prompt_injection_weight: 0.0,
+      velocity_weight: 0.0,
+      credential_age_weight: 0.011,
+      vendor_allowlist_weight: 0.0,
+      amount_cap_weight: 0.1754,
+      category_policy_weight: 0.0,
+      historical_dispute_weight: 0.007,
+      governance_rationale:
+        "CFO ESCALATION (R=0.182): Verified vendor 'vendor_cloud_compute' passed injection & velocity screens [prompt_injection_weight=0.000, velocity_weight=0.000, credential_age_weight=0.011], but amount $4,180.50 exceeds $1,000.00 auto-limit (amount_cap_weight=0.175). Parked in HUMAN_REVIEW for CFO sign-off.",
       reasons: ["Amount $4,180.50 exceeds $1,000 auto-approval threshold", "PO variance 0.73% within <=2% policy tolerance"],
     },
     idempotency_key: "idem_4180_cfo_maya_lock_88",
@@ -330,12 +370,21 @@ export const SEEDED_INTENTS: PaymentIntent[] = [
       passed: false,
     },
     risk: {
-      score: 0.95,
+      score: 0.675,
       v_entity: 1.0,
       d_duplicate: 0.0,
-      a_amount: 0.5,
+      a_amount: 0.625,
       c_category: 1.0,
-      h_history: 0.8,
+      h_history: 1.0,
+      prompt_injection_weight: 0.28,
+      velocity_weight: 0.0,
+      credential_age_weight: 0.28,
+      vendor_allowlist_weight: 0.3,
+      amount_cap_weight: 0.125,
+      category_policy_weight: 0.15,
+      historical_dispute_weight: 0.1,
+      governance_rationale:
+        "HARD BLOCK (R=0.675): Counterparty 'vendor_fastcrypto' or category 'crypto' violates mandate guardrails [prompt_injection_weight=0.280, velocity_weight=0.000, credential_age_weight=0.280, category_policy_weight=0.150]. Zero PayPal API calls executed.",
       reasons: ["Vendor FastCrypto Services is not allowlisted", "Category 'crypto' is strictly blocked by mandate mdt_9f21ac"],
     },
     idempotency_key: "idem_blocked_crypto_33",
@@ -696,7 +745,31 @@ class SentinelApiClient {
   // Judge Scenarios Runner
   async runScenario(scenarioId: 1 | 2 | 3 | 4): Promise<ScenarioRunResult> {
     try {
-      return await this.request<ScenarioRunResult>(`/scenarios/run/${scenarioId}`, { method: "POST" });
+      const raw = await this.request<Record<string, unknown>>(`/scenarios/run/${scenarioId}`, { method: "POST" });
+      const details = (raw.details as Record<string, unknown>) || {};
+      const rb = (details.risk_breakdown as RiskAttributionWeights) || undefined;
+      return {
+        scenario_id: Number(raw.scenario_id || scenarioId),
+        title: String(raw.scenario_name || raw.title || `Scenario ${scenarioId}`),
+        success: raw.status === "SUCCESS" || Boolean(raw.success),
+        final_state: (raw.final_state as IntentStatus) || "RECONCILED",
+        risk_score: typeof details.risk_score === "number" ? details.risk_score : undefined,
+        risk_breakdown: rb,
+        governance_rationale:
+          (typeof details.governance_rationale === "string" && details.governance_rationale) ||
+          rb?.governance_rationale,
+        execution_steps: Array.isArray(raw.execution_steps)
+          ? (raw.execution_steps as ScenarioRunResult["execution_steps"])
+          : Array.isArray(raw.trace)
+          ? (raw.trace as string[]).map((line, idx) => ({
+              step: `STEP_${idx + 1}`,
+              state: String(raw.final_state || "RECONCILED"),
+              timestamp: `00:00.${idx + 1}`,
+              detail: line,
+            }))
+          : [],
+        payload: details,
+      };
     } catch {
       switch (scenarioId) {
         case 1:
@@ -705,11 +778,23 @@ class SentinelApiClient {
             title: "Scenario 1: Auto-Approved Procurement ($840.00)",
             success: true,
             final_state: "RECONCILED",
+            risk_score: 0.0213,
+            risk_breakdown: {
+              prompt_injection_weight: 0.0,
+              velocity_weight: 0.0,
+              credential_age_weight: 0.0085,
+              vendor_allowlist_weight: 0.0,
+              amount_cap_weight: 0.0168,
+              category_policy_weight: 0.0,
+              historical_dispute_weight: 0.0045,
+              governance_rationale: SEEDED_INTENTS[0].risk.governance_rationale,
+            },
+            governance_rationale: SEEDED_INTENTS[0].risk.governance_rationale,
             execution_steps: [
               { step: "PROPOSAL", state: "PROPOSED", timestamp: "00:00.1", detail: "Agent Atlas proposed $840.00 invoice from Data Labeling Co" },
               { step: "POLICY_CHECK", state: "POLICY_CHECK", timestamp: "00:00.3", detail: "Verified against mdt_9f21ac: under $1,000 auto-limit, allowlisted vendor" },
               { step: "EVIDENCE_VALIDATION", state: "EVIDENCE_VALIDATION", timestamp: "00:00.6", detail: "PO match score M = 0.97 (Exact $840 total, line item similarity 0.95)" },
-              { step: "DECISION", state: "AUTO_APPROVED", timestamp: "00:00.8", detail: "Risk score R = 0.08 < 0.15 threshold. Auto-approval granted" },
+              { step: "DECISION", state: "AUTO_APPROVED", timestamp: "00:00.8", detail: "Risk score R = 0.021 < 0.15 threshold. Auto-approval granted" },
               { step: "PAYPAL_EXEC", state: "CAPTURED", timestamp: "00:01.4", detail: "PayPal Orders v2 Authorize -> Capture (Capture ID: 2GG279541U053982Y)" },
               { step: "LEDGER", state: "RECONCILED", timestamp: "00:01.7", detail: "SHA-256 Merkle block #140 anchored" },
             ],
@@ -721,6 +806,18 @@ class SentinelApiClient {
             title: "Scenario 2: High-Value CFO Escalation ($4,180.50)",
             success: true,
             final_state: "HUMAN_REVIEW",
+            risk_score: 0.1824,
+            risk_breakdown: {
+              prompt_injection_weight: 0.0,
+              velocity_weight: 0.0,
+              credential_age_weight: 0.011,
+              vendor_allowlist_weight: 0.0,
+              amount_cap_weight: 0.1754,
+              category_policy_weight: 0.0,
+              historical_dispute_weight: 0.007,
+              governance_rationale: SEEDED_INTENTS[1].risk.governance_rationale,
+            },
+            governance_rationale: SEEDED_INTENTS[1].risk.governance_rationale,
             execution_steps: [
               { step: "PROPOSAL", state: "PROPOSED", timestamp: "00:00.1", detail: "Agent Atlas proposed $4,180.50 invoice from Cloud Compute Inc" },
               { step: "EVIDENCE_VALIDATION", state: "EVIDENCE_VALIDATION", timestamp: "00:00.4", detail: "PO match score M = 0.96 (Variance 0.73% within <=2% policy tolerance)" },
@@ -734,6 +831,18 @@ class SentinelApiClient {
             title: "Scenario 3: Out-of-Policy / Blocked Vendor ($2,500.00)",
             success: true,
             final_state: "BLOCKED",
+            risk_score: 0.675,
+            risk_breakdown: {
+              prompt_injection_weight: 0.28,
+              velocity_weight: 0.0,
+              credential_age_weight: 0.28,
+              vendor_allowlist_weight: 0.3,
+              amount_cap_weight: 0.125,
+              category_policy_weight: 0.15,
+              historical_dispute_weight: 0.1,
+              governance_rationale: SEEDED_INTENTS[2].risk.governance_rationale,
+            },
+            governance_rationale: SEEDED_INTENTS[2].risk.governance_rationale,
             execution_steps: [
               { step: "PROPOSAL", state: "PROPOSED", timestamp: "00:00.1", detail: "Agent Atlas submitted $2,500.00 request to FastCrypto Services" },
               { step: "POLICY_CHECK", state: "POLICY_CHECK", timestamp: "00:00.3", detail: "Category 'crypto' strictly blocked; vendor not allowlisted" },
@@ -747,6 +856,18 @@ class SentinelApiClient {
             title: "Scenario 4: Dispute Webhook -> Autonomous Evidence Package",
             success: true,
             final_state: "EVIDENCE_SUBMITTED",
+            risk_score: 0.1824,
+            risk_breakdown: {
+              prompt_injection_weight: 0.0,
+              velocity_weight: 0.0,
+              credential_age_weight: 0.011,
+              vendor_allowlist_weight: 0.0,
+              amount_cap_weight: 0.1754,
+              category_policy_weight: 0.0,
+              historical_dispute_weight: 0.007,
+              governance_rationale: SEEDED_INTENTS[1].risk.governance_rationale,
+            },
+            governance_rationale: SEEDED_INTENTS[1].risk.governance_rationale,
             execution_steps: [
               { step: "WEBHOOK", state: "DISPUTE_OPEN", timestamp: "00:00.2", detail: "Received PayPal CUSTOMER.DISPUTE.CREATED (PP-D-99412, INR)" },
               { step: "VERIFICATION", state: "DISPUTE_OPEN", timestamp: "00:00.4", detail: "HMAC signature verified, event_id dedup passed" },

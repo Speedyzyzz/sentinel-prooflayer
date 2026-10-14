@@ -22,10 +22,98 @@ import {
 import {
   api,
   type PaymentIntent,
+  type RiskAttributionWeights,
   type ScenarioRunResult,
   SEEDED_INTENTS,
 } from "@/lib/api";
 import { StatusBadgeRenderer, RiskGaugeRenderer } from "@/components/AgGridGovernanceTable";
+
+const DEFAULT_SCENARIO_XAI: Record<number, RiskAttributionWeights> = {
+  1: {
+    prompt_injection_weight: 0.0,
+    velocity_weight: 0.0,
+    credential_age_weight: 0.0085,
+    vendor_allowlist_weight: 0.0,
+    amount_cap_weight: 0.0168,
+    governance_rationale:
+      "FAST-PATH AUTO-APPROVAL (R=0.021): Allowlisted vendor 'vendor_data_labeling_co' within $1,000.00 auto-ceiling with clean telemetry [prompt_injection_weight=0.000, velocity_weight=0.000, credential_age_weight=0.009].",
+  },
+  2: {
+    prompt_injection_weight: 0.0,
+    velocity_weight: 0.0,
+    credential_age_weight: 0.011,
+    vendor_allowlist_weight: 0.0,
+    amount_cap_weight: 0.1754,
+    governance_rationale:
+      "CFO ESCALATION (R=0.182): Verified vendor 'vendor_cloud_compute' passed injection & velocity screens, but amount $4,180.50 exceeds $1,000.00 auto-limit (amount_cap_weight=0.175). Parked in HUMAN_REVIEW.",
+  },
+  3: {
+    prompt_injection_weight: 0.28,
+    velocity_weight: 0.0,
+    credential_age_weight: 0.28,
+    vendor_allowlist_weight: 0.3,
+    category_policy_weight: 0.15,
+    governance_rationale:
+      "HARD BLOCK (R=0.675): Counterparty 'vendor_fastcrypto' and category 'crypto' violate mandate guardrails [prompt_injection_weight=0.280, credential_age_weight=0.280, category_policy_weight=0.150]. Zero PayPal calls.",
+  },
+  4: {
+    prompt_injection_weight: 0.0,
+    velocity_weight: 0.0,
+    credential_age_weight: 0.011,
+    vendor_allowlist_weight: 0.0,
+    amount_cap_weight: 0.1754,
+    governance_rationale:
+      "CAUSAL AUTO-DEFENSE (Readiness=0.940): Pre-payment XAI attribution anchored to 18-node causal graph with 100% [ev_*] inline citations and digital session telemetry [ev_session_118].",
+  },
+};
+
+function XaiAttributionBlock({
+  scenarioId,
+  result,
+}: {
+  scenarioId: 1 | 2 | 3 | 4;
+  result?: ScenarioRunResult;
+}) {
+  const xai = result?.risk_breakdown || DEFAULT_SCENARIO_XAI[scenarioId];
+  const rationale =
+    result?.governance_rationale ||
+    xai?.governance_rationale ||
+    DEFAULT_SCENARIO_XAI[scenarioId].governance_rationale;
+
+  return (
+    <div className="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2.5 text-[10px] font-mono flex flex-col gap-1.5">
+      <div className="flex items-center justify-between text-slate-300 font-semibold border-b border-slate-800/80 pb-1">
+        <span>Explainable AI Risk Attribution</span>
+        <span className="text-paypal-cyan">XAI Weights</span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+        <div className="bg-slate-900/90 rounded px-1.5 py-1 border border-slate-800/70">
+          <div className="text-slate-500 text-[9px]">prompt_inj</div>
+          <div className="text-slate-200 font-bold">
+            {(xai?.prompt_injection_weight ?? 0).toFixed(3)}
+          </div>
+        </div>
+        <div className="bg-slate-900/90 rounded px-1.5 py-1 border border-slate-800/70">
+          <div className="text-slate-500 text-[9px]">velocity</div>
+          <div className="text-slate-200 font-bold">
+            {(xai?.velocity_weight ?? 0).toFixed(3)}
+          </div>
+        </div>
+        <div className="bg-slate-900/90 rounded px-1.5 py-1 border border-slate-800/70">
+          <div className="text-slate-500 text-[9px]">cred_age</div>
+          <div className="text-slate-200 font-bold">
+            {(xai?.credential_age_weight ?? 0).toFixed(3)}
+          </div>
+        </div>
+      </div>
+      {rationale && (
+        <div className="text-[10px] font-sans text-slate-400 leading-snug pt-0.5">
+          {rationale}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ExecutiveCommandCenterPage() {
   const [runningScenarioId, setRunningScenarioId] = useState<number | null>(null);
@@ -220,7 +308,7 @@ export default function ExecutiveCommandCenterPage() {
             </h2>
           </div>
           <span className="text-xs text-slate-400">
-            Click any scenario to simulate deterministic state machine execution:
+            Click any scenario to simulate deterministic state machine execution &amp; XAI risk attribution:
           </span>
         </div>
 
@@ -238,6 +326,7 @@ export default function ExecutiveCommandCenterPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 Data Labeling Co. PO match score 0.97. Seamless progression through auto-approval, PayPal capture, and reconciliation.
               </p>
+              <XaiAttributionBlock scenarioId={1} result={scenarioResults[1]} />
             </div>
 
             <div className="flex flex-col gap-2 pt-2 border-t border-sentinel-border">
@@ -276,6 +365,7 @@ export default function ExecutiveCommandCenterPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 Cloud Compute Inc. Variance 0.73% &lt;= 2%. Over $1,000 threshold. Parks in HUMAN_REVIEW until CFO Maya approves.
               </p>
+              <XaiAttributionBlock scenarioId={2} result={scenarioResults[2]} />
             </div>
 
             <div className="flex flex-col gap-2 pt-2 border-t border-sentinel-border">
@@ -302,7 +392,7 @@ export default function ExecutiveCommandCenterPage() {
                     </button>
                   ) : (
                     <div className="text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Approved & Captured by CFO Maya
+                      <CheckCircle2 className="w-3 h-3" /> Approved &amp; Captured by CFO Maya
                     </div>
                   )}
                 </div>
@@ -323,6 +413,7 @@ export default function ExecutiveCommandCenterPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 FastCrypto Services. Non-allowlisted + &apos;crypto&apos; blocked category. Instantly transitions to BLOCKED with 0 PayPal calls.
               </p>
+              <XaiAttributionBlock scenarioId={3} result={scenarioResults[3]} />
             </div>
 
             <div className="flex flex-col gap-2 pt-2 border-t border-sentinel-border">
@@ -361,6 +452,7 @@ export default function ExecutiveCommandCenterPage() {
               <p className="text-xs text-slate-400 leading-relaxed">
                 Webhook ingestion, 18-node Causal Graph synthesis, Readiness 0.94, and compiled defense brief with bracketed citations.
               </p>
+              <XaiAttributionBlock scenarioId={4} result={scenarioResults[4]} />
             </div>
 
             <div className="flex flex-col gap-2 pt-2 border-t border-sentinel-border">

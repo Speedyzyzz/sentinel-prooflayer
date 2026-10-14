@@ -11,9 +11,9 @@ Implements all 4 authoritative hackathon judge scenarios:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import (
@@ -44,8 +44,6 @@ from app.schemas import (
 from app.services.audit_ledger import AuditLedgerService
 from app.services.evidence_compiler import EvidenceCompilerService
 from app.services.evidence_graph import CausalGraph
-from app.services.paypal_client import PayPalClient
-from app.services.state_machine import StateMachine
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
@@ -366,8 +364,8 @@ def run_scenario_1(db: Session = Depends(get_db)) -> ScenarioRunResponse:
     trace.append("PROPOSED: Atlas proposed $840.00 payment to Data Labeling Co (inv_2026_0840)")
     intent_res = propose_intent(payload=intent_payload, db=db)
     trace.append(f"POLICY_CHECK: Evaluated PO match score M={intent_res.po_match_score:.2f}, risk R={intent_res.risk_score:.3f}")
-    trace.append(f"EVIDENCE_VALIDATION: Fast-path conditions satisfied ($840 <= $1,000 auto limit)")
-    trace.append(f"AUTO_APPROVED: Intent transitioned to AUTO_APPROVED")
+    trace.append("EVIDENCE_VALIDATION: Fast-path conditions satisfied ($840 <= $1,000 auto limit)")
+    trace.append("AUTO_APPROVED: Intent transitioned to AUTO_APPROVED")
 
     # Step 2: Execute Payment
     idem_key = f"idem_scen1_{uuid.uuid4().hex[:8]}"
@@ -376,7 +374,7 @@ def run_scenario_1(db: Session = Depends(get_db)) -> ScenarioRunResponse:
     exec_res = execute_payment(payload=exec_payload, db=db)
     trace.append(f"AUTHORIZED: PayPal Order {exec_res.paypal_order_id} authorized")
     trace.append(f"CAPTURED: PayPal Capture {exec_res.paypal_capture_id} confirmed")
-    trace.append(f"RECONCILED: Reconciled transaction settled")
+    trace.append("RECONCILED: Reconciled transaction settled")
 
     final_blocks = db.query(AuditBlock).count()
     blocks_added = final_blocks - initial_blocks
@@ -390,6 +388,8 @@ def run_scenario_1(db: Session = Depends(get_db)) -> ScenarioRunResponse:
             "intent_id": intent_res.id,
             "po_match_score": intent_res.po_match_score,
             "risk_score": intent_res.risk_score,
+            "risk_breakdown": intent_res.risk_breakdown,
+            "governance_rationale": (intent_res.risk_breakdown or {}).get("governance_rationale"),
             "paypal_order_id": exec_res.paypal_order_id,
             "paypal_capture_id": exec_res.paypal_capture_id,
             "amount": 840.00,
@@ -446,7 +446,7 @@ def run_scenario_2(db: Session = Depends(get_db)) -> ScenarioRunResponse:
         notes="Authorized by CFO Maya Lin: H100 compute overage verified within 2% contract variance.",
         idempotency_key=cfo_idem_key,
     )
-    app_res = approve_intent(intent_id=intent_res.id, payload=app_payload, db=db)
+    approve_intent(intent_id=intent_res.id, payload=app_payload, db=db)
     trace.append(f"APPROVED: CFO Maya approved intent with authority limit $100k (key: {cfo_idem_key})")
 
     # Step 3: Execute Payment with atomic idempotency
@@ -455,7 +455,7 @@ def run_scenario_2(db: Session = Depends(get_db)) -> ScenarioRunResponse:
     exec_res = execute_payment(payload=exec_payload, db=db)
     trace.append(f"AUTHORIZED: PayPal Order {exec_res.paypal_order_id} authorized")
     trace.append(f"CAPTURED: PayPal Capture {exec_res.paypal_capture_id} confirmed")
-    trace.append(f"RECONCILED: Reconciled transaction settled")
+    trace.append("RECONCILED: Reconciled transaction settled")
 
     final_blocks = db.query(AuditBlock).count()
     blocks_added = final_blocks - initial_blocks
@@ -468,6 +468,9 @@ def run_scenario_2(db: Session = Depends(get_db)) -> ScenarioRunResponse:
         details={
             "intent_id": intent_res.id,
             "po_match_score": intent_res.po_match_score,
+            "risk_score": intent_res.risk_score,
+            "risk_breakdown": intent_res.risk_breakdown,
+            "governance_rationale": (intent_res.risk_breakdown or {}).get("governance_rationale"),
             "approver": "usr_maya (CFO)",
             "idempotency_key": cfo_idem_key,
             "paypal_order_id": exec_res.paypal_order_id,
@@ -527,6 +530,8 @@ def run_scenario_3(db: Session = Depends(get_db)) -> ScenarioRunResponse:
             "intent_id": intent_res.id,
             "violations": ["blocked_category: crypto", "vendor_not_allowlisted"],
             "risk_score": intent_res.risk_score,
+            "risk_breakdown": intent_res.risk_breakdown,
+            "governance_rationale": (intent_res.risk_breakdown or {}).get("governance_rationale"),
             "paypal_calls_made": 0,
             "vendor": "FastCrypto Services",
             "amount": 2500.00,
@@ -543,7 +548,6 @@ def run_scenario_4(db: Session = Depends(get_db)) -> ScenarioRunResponse:
     from app.routers.evidence import get_evidence_graph
     from app.routers.disputes import submit_dispute_defense
     from app.routers.webhooks import handle_paypal_webhook
-    from fastapi import Request
 
     trace: List[str] = []
     initial_blocks = db.query(AuditBlock).count()
@@ -590,21 +594,21 @@ def run_scenario_4(db: Session = Depends(get_db)) -> ScenarioRunResponse:
             return webhook_payload
 
     import asyncio
-    wh_res = asyncio.run(
+    asyncio.run(
         handle_paypal_webhook(
-            request=MockRequest(),
+            request=MockRequest(),  # type: ignore
             paypal_transmission_id=event_id,
             paypal_transmission_sig="SIG_TWIN_VALID_HMAC",
             db=db,
         )
     )
     trace.append(f"WEBHOOK RECEIVED: {event_id} verified via Sandbox Twin HMAC signature")
-    trace.append(f"DISPUTE_OPEN: Linked PaymentIntent transitioned to DISPUTE_OPEN")
+    trace.append("DISPUTE_OPEN: Linked PaymentIntent transitioned to DISPUTE_OPEN")
 
     # Step 3: Test Replay Deduplication (firing same event_id twice)
     wh_dup = asyncio.run(
         handle_paypal_webhook(
-            request=MockRequest(),
+            request=MockRequest(),  # type: ignore
             paypal_transmission_id=event_id,
             paypal_transmission_sig="SIG_TWIN_VALID_HMAC",
             db=db,
@@ -642,6 +646,8 @@ def run_scenario_4(db: Session = Depends(get_db)) -> ScenarioRunResponse:
             "event_id": event_id,
             "readiness_score": readiness_score,
             "readiness_breakdown": breakdown,
+            "risk_breakdown": reconciled_intent.risk_breakdown,
+            "governance_rationale": (reconciled_intent.risk_breakdown or {}).get("governance_rationale"),
             "cited_nodes": sub_res.evidence_package.get("cited_nodes", []) if sub_res.evidence_package else [],
             "defense_narrative": sub_res.defense_narrative,
             "paypal_evidence_type": sub_res.evidence_package.get("paypal_evidence_type") if sub_res.evidence_package else "PROOF_OF_FULFILLMENT",
