@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Live Demo: Render](https://img.shields.io/badge/Live%20Command%20Center-sentinel--prooflayer--web.onrender.com-00E599?logo=render&logoColor=white)](https://sentinel-prooflayer-web.onrender.com)
 [![Live API: Swagger Docs](https://img.shields.io/badge/Live%20API%20Docs-sentinel--prooflayer--api.onrender.com-009688?logo=fastapi&logoColor=white)](https://sentinel-prooflayer-api.onrender.com/docs)
-[![Tests: 48/48 Passing](https://img.shields.io/badge/Pytest-48%2F48%20Passing%20(0.68s)-brightgreen.svg)](backend/tests)
+[![Tests: 53/53 Passing](https://img.shields.io/badge/Pytest-53%2F53%20Passing%20(0.80s)-brightgreen.svg)](backend/tests)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://python.org)
 [![FastAPI: 0.115+](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js: 15](https://img.shields.io/badge/Next.js-15.1-black.svg?logo=next.js&logoColor=white)](https://nextjs.org)
@@ -454,7 +454,7 @@ npm run dev
 
 ## 14. Verification Suite, Benchmarks & Cryptographic Tamper Proofs
 
-Run the full 48-test verification suite in under 1 second:
+Run the full 53-test verification suite in under 1 second:
 ```bash
 cd backend
 pytest -v
@@ -465,7 +465,8 @@ pytest -v
 | `tests/test_m1_core.py` | `17 / 17 Passed` | `0.21s` | NL Policy Compiler, $M$ & $R$ math invariants, 12-state transitions, 3-tier Kill Switch, 18-node Evidence Graph, `[ev_*]` citation enforcement, SHA-256 Merkle tamper detection |
 | `tests/test_m2_routers_scenarios_mcp.py` | `17 / 17 Passed` | `0.25s` | All 9 FastAPI routers, webhook signature & `event_id` deduplication, 12 MCP tools |
 | `tests/test_end_to_end.py` | `14 / 14 Passed` | `0.22s` | All 14 official hackathon success criteria across Scenarios 1, 2, 3, and 4 |
-| **Total Verification Suite** | **`48 / 48 Passed`** | **`0.68s`** | **100% End-to-End Functional & Mathematical Verification** |
+| `tests/test_production_hardening.py` | `5 / 5 Passed` | `0.12s` | `/ready` SQLite & Merkle probe, `X-Request-ID` & security headers, optional `SENTINEL_API_KEY` enforcement, Docker/CI presence |
+| **Total Verification Suite** | **`53 / 53 Passed`** | **`0.80s`** | **100% End-to-End Functional, Security & Mathematical Verification** |
 
 ---
 
