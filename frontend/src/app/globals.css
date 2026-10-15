@@ -8,25 +8,85 @@
 
 :root {
   color-scheme: dark;
+  --surface-0: #050507;
+  --surface-1: #0B0C0E;
+  --surface-2: #111317;
+  --bezel-border: rgba(255, 255, 255, 0.07);
+  --emerald-glow: rgba(16, 185, 129, 0.15);
+  --amber-glow: rgba(245, 158, 11, 0.15);
+  --crimson-glow: rgba(239, 68, 68, 0.20);
+  --cyan-glow: rgba(6, 182, 212, 0.18);
 }
 
 body {
-  background-color: #080C15;
-  color: #F8FAFC;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: #050507;
+  color: #F9FAFB;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   overflow-x: hidden;
+  position: relative;
+}
+
+/* 2% Tactical SVG Noise Grain Overlay on Surface 0 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.022;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Tactical Hardware Surface & Double-Bezel Utilities */
+@layer components {
+  .tactical-surface-1 {
+    background-color: #0B0C0E;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 16px 32px -16px rgba(0, 0, 0, 0.65);
+  }
+
+  .tactical-surface-2 {
+    background-color: #111317;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  }
+
+  .tactical-double-bezel {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(11, 12, 14, 0.96) 24%, #0B0C0E 100%);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.11),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+      0 20px 40px -15px rgba(0, 0, 0, 0.75);
+  }
+
+  .tactical-push-btn {
+    transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms ease,
+      background-color 180ms ease;
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.14), 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .tactical-push-btn:active:not(:disabled) {
+    transform: scale(0.98) translateY(1px);
+  }
+
+  .spring-transition {
+    transition: all 320ms cubic-bezier(0.175, 0.885, 0.32, 1.12);
+  }
 }
 
 /* Custom Institutional AG Grid Theme Overrides */
 .ag-theme-quartz-dark {
-  --ag-background-color: #0E1526;
-  --ag-header-background-color: #0B1120;
-  --ag-header-foreground-color: #94A3B8;
-  --ag-border-color: #1E2C48;
-  --ag-row-border-color: #16223B;
-  --ag-foreground-color: #E2E8F0;
-  --ag-row-hover-color: #1A2744;
-  --ag-selected-row-background-color: #1E3A8A33;
+  --ag-background-color: #0B0C0E;
+  --ag-header-background-color: #050507;
+  --ag-header-foreground-color: #9CA3AF;
+  --ag-border-color: rgba(255, 255, 255, 0.07);
+  --ag-row-border-color: rgba(255, 255, 255, 0.05);
+  --ag-foreground-color: #F9FAFB;
+  --ag-row-hover-color: #111317;
+  --ag-selected-row-background-color: rgba(6, 182, 212, 0.12);
   --ag-font-family: inherit;
   --ag-font-size: 13px;
 }
@@ -44,12 +104,12 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #080C15;
+  background: #050507;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E2C48;
+  background: #1F242D;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2E4166;
+  background: #374151;
 }
