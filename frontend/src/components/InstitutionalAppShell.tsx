@@ -16,11 +16,13 @@ import {
   AlertOctagon,
   X,
   Terminal,
+  Sparkles,
 } from "lucide-react";
 import { api, type PayPalStatus, type KillSwitchStatus } from "@/lib/api";
 
 const NAV_LINKS = [
   { href: "/", label: "Executive Command", icon: LayoutDashboard, badge: "CORE HUD" },
+  { href: "/demo", label: "Landing & 3D Hero", icon: Sparkles, badge: "HERO" },
   { href: "/mandates", label: "Mandate Studio", icon: ShieldCheck, badge: "NL->CEL" },
   { href: "/approvals", label: "Approval Queue", icon: UserCheck, badge: "CFO MFA" },
   { href: "/transactions", label: "Ledger & Receipts", icon: CreditCard, badge: "SETTLED" },
