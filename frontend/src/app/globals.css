@@ -8,6 +8,15 @@
 
 :root {
   color-scheme: dark;
+  --bg-0: #09090b;
+  --bg-100: #18181b;
+  --bg-200: #27272a;
+  --bg-300: #3f3f46;
+  --text-100: #fafafa;
+  --text-200: #e4e4e7;
+  --text-300: #a1a1aa;
+  --text-400: #71717a;
+  --radius: 0.5rem;
   --surface-0: #050507;
   --surface-1: #0B0C0E;
   --surface-2: #111317;
@@ -113,3 +122,34 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
   background: #374151;
 }
+
+.font-instrument-serif {
+  font-family: "Instrument Serif", "Playfair Display", Georgia, serif;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-fade-slide-in-1 {
+    animation: fadeSlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+  }
+  .animate-fade-slide-in-2 {
+    animation: fadeSlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+  }
+  .animate-fade-slide-in-3 {
+    animation: fadeSlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+  }
+  .animate-fade-slide-in-4 {
+    animation: fadeSlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.30s both;
+  }
+}
+

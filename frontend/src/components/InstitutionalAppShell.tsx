@@ -230,7 +230,7 @@ export function InstitutionalAppShell({ children }: { children: React.ReactNode 
               <div className="flex items-center gap-2.5 text-[#EF4444]">
                 <AlertOctagon className="w-5 h-5 animate-pulse" />
                 <h3 className="text-sm font-mono font-bold tracking-wider">
-                  LEVEL_{activeKillTier} // EMERGENCY CONTAINMENT BREAKER
+                  LEVEL_{activeKillTier} {"//"} EMERGENCY CONTAINMENT BREAKER
                 </h3>
               </div>
               <button

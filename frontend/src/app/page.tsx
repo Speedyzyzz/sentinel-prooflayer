@@ -486,7 +486,7 @@ export default function ExecutiveCommandCenterPage() {
       </section>
 
       {/* ZONE 3: THE INTERACTIVE JUDGE SCENARIO ARENA (XAI MATRIX) */}
-      <section className="flex flex-col gap-4">
+      <section id="scenario-arena" className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-white/[0.07] pb-3">
           <div>
             <span className="text-[11px] font-mono uppercase tracking-widest text-[#10B981]">
